@@ -1,0 +1,76 @@
+# SysLegis — Postgres + app Next.js (Dockerfile standalone).
+#
+# Uso:
+#   cp deploy/env.docker.example deploy/env.docker
+#   # edite AUTH_SECRET em deploy/env.docker
+#   docker compose --env-file deploy/env.docker up -d --build
+#
+# Primeira vez no banco: aplique o schema (ex.: prisma db push) — ver deploy/INSTRUCOES.txt
+
+services:
+  syslegis-db:
+    image: postgres:16-alpine
+    container_name: syslegis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sysadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-syslegis_db}
+    ports:
+      - "${POSTGRES_PORT:-5435}:5432"
+    volumes:
+      - syslegis-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sysadmin -d syslegis_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  syslegis-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: syslegis-app:${APP_IMAGE_TAG:-local}
+    container_name: syslegis-app
+    restart: unless-stopped
+    # Provisionamento (SSH no anfitrião): openssh-client na imagem + chaves montadas de /root/.ssh.
+    user: "0:0"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      HOME: /root
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sysadmin}:${POSTGRES_PASSWORD:?Defina_POSTGRES_PASSWORD}@syslegis-db:5432/${POSTGRES_DB:-syslegis_db}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?Defina AUTH_SECRET em deploy/env.docker — veja deploy/env.docker.example}
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-syslegis.com}
+      APP_PORT: "3000"
+      PROVISION_SSH_TARGET: ${PROVISION_SSH_TARGET:-}
+      PROVISION_SSH_ALIAS: ${PROVISION_SSH_ALIAS:-vps-syslegis}
+      PROVISION_PUBLIC_IP: ${PROVISION_PUBLIC_IP:-}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
+    volumes:
+      - ${PROVISION_SSH_DIR:-/root/.ssh}:/root/.ssh
+      # Uploads em disco: sem volume, cada rebuild/recriação do contentor apaga fotos (oradores, brasões, etc.).
+      - syslegis-uploads:/app/public/uploads
+    depends_on:
+      syslegis-db:
+        condition: service_healthy
+
+  syslegis-pgadmin:
+    image: dpage/pgadmin4
+    container_name: syslegis-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?Defina_PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?Defina_PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      syslegis-db:
+        condition: service_healthy
+
+volumes:
+  syslegis-db-data:
+  syslegis-uploads:

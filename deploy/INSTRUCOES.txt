@@ -1,0 +1,67 @@
+SysLegis — deploy com Docker
+=============================
+
+1) Na raiz do repositório:
+   cp deploy/env.docker.example deploy/env.docker
+   Edite deploy/env.docker e defina AUTH_SECRET (obrigatório).
+
+   Ao sincronizar com rsync para a VPS, preserve o env remoto:
+   rsync ... --exclude deploy/env.docker ...
+
+   Atalho (commit + push + rsync + rebuild), na raiz do repo:
+   ./scripts/deploy-rsync.sh -m "descrição do commit"
+   ou só sincronizar + rebuild: ./scripts/deploy-rsync.sh
+   (defina DEPLOY_SSH / DEPLOY_PATH se o destino não for vps-app:/opt/aplicacao)
+
+   Criar/atualizar ADMIN_MASTER na base (usa DATABASE_URL do .env):
+   node scripts/create-admin-master.cjs email@dominio.com 'senhaSegura'
+   ou: npm run db:create-admin -- email@dominio.com 'senhaSegura'
+
+2) Subir banco + app:
+   docker compose --env-file deploy/env.docker up -d --build
+
+   Ficheiros em /uploads (fotos de oradores, brasões, etc.) ficam no volume Docker «syslegis-uploads»
+   montado em /app/public/uploads — sobrevivem a rebuilds. Sem este volume (instalações antigas),
+   cada «up --build» apaga essas imagens; volte a enviar os ficheiros ou migre dados para o volume.
+   O Next em produção não lista ficheiros de «public» adicionados após o arranque; o projeto usa um
+   rewrite interno de /uploads/* para uma rota API que lê o disco (URLs públicas mantêm-se /uploads/…).
+
+3) Banco de dados: este repositório não inclui migrations versionadas.
+   Na primeira vez, aplique o schema no Postgres (a partir da sua máquina ou de um container one-shot), por exemplo:
+   DATABASE_URL="postgresql://USUARIO:SENHA@HOST:PORTA/BANCO?schema=public" npx prisma db push
+   (use a porta/host que o compose expõe para o Postgres; 5435 é o mapeamento padrão do compose.)
+   Migrações SQL incrementais em db/migrations/: aplique na VPS com psql (ou pipeline habitual) antes
+   de rebuild; em seguida npx prisma generate (ou db push) para alinhar o cliente Prisma ao schema.
+
+4) Acesse http://localhost:3000 (ou a porta definida em APP_PORT no compose).
+
+5) Em produção na VPS: use Nginx (veja deploy/nginx.example.conf), HTTPS com Certbot,
+   e mantenha DATABASE_URL apontando para o serviço Postgres interno ou RDS.
+
+   HTTPS (já aplicado na VPS syslegis): após o DNS apontar para o servidor:
+   certbot --nginx -d seu-dominio.example -d www.seu-dominio.example --non-interactive --agree-tos -m SEU_EMAIL --redirect
+   Renovação: timer systemd certbot (instalado com o pacote).
+
+   PDF / uploads: em cada bloco «server» do Nginx (apex e cada subdomínio de câmara) use
+   «client_max_body_size 50m;» — o padrão do Nginx (~1MB) devolve 413 em /api/proposicoes/upload-pdf.
+   Depois: «nginx -t && systemctl reload nginx». Vhosts criados pelo «Provisionar VPS» na app já incluem
+   esta linha; instalações antigas devem acrescentá-la manualmente dentro de «server { … }».
+
+6) Domínio produção: aponte DNS (A/AAAA) de seu-dominio.example e www.seu-dominio.example para o IP da VPS.
+   APP_BASE_DOMAIN no deploy/env.docker deve ser seu-dominio.example (já é o padrão no exemplo).
+
+7) Subdomínios das câmaras (slug.seu-dominio.example) e SSL
+   - No Nginx do apex, NÃO use "server_name seu-dominio.example www.seu-dominio.example _;" no mesmo bloco
+     HTTPS do site principal. O "_" captura qualquer Host (incluindo subdomínios) e o Certbot
+     do apex passa a servir o certificado errado para slug.seu-dominio.example — o browser acusa SSL inválido
+     e o Certbot por subdomínio não encontra bloco dedicado.
+   - Use apenas: server_name seu-dominio.example www.seu-dominio.example;
+   - Cada subdomínio precisa do seu ficheiro em sites-available (o botão "Provisionar VPS" na app
+     cria isso por SSH). Sem esse ficheiro na porta 80, o Certbot --nginx -d slug.dominio falha.
+   - Depois do DNS do subdomínio apontar para o IP da VPS: certbot --nginx -d slug.seu-dominio.example ...
+
+8) Botões «Provisionar VPS» / «Ativar SSL» na interface
+   - O servidor Next.js (container) precisa de conseguir correr "ssh vps-app ..." (cliente SSH
+     e chave no utilizador do container ou desative e faça provision na mão na VPS).
+   - Se o SSH falhar em silêncio ou nunca criar /etc/nginx/sites-available/slug.dominio.conf,
+     corrija o Nginx na VPS manualmente e volte a correr o Certbot como no ponto 7.

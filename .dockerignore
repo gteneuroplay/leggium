@@ -1,0 +1,20 @@
+# Dependencies e artefatos locais
+node_modules
+.next
+out
+
+# Git e IDE
+.git
+.gitignore
+.cursor
+.vscode
+
+# Ambiente e segredos (use deploy/env.docker na VPS)
+.env
+.env.*
+!.env.example
+
+# Testes e misc
+coverage
+*.log
+npm-debug.log*

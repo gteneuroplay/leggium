@@ -1,0 +1,466 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ProposicaoTipo {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  nome       String   @db.VarChar(100)
+  sigla      String   @db.VarChar(10)
+  descricao  String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("proposicao_tipos")
+}
+
+model Tenant {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome_camara      String               @db.VarChar(255)
+  slug             String               @unique @db.VarChar(100)
+  cidade           String               @db.VarChar(100)
+  uf               String               @db.Char(2)
+  brasao_url       String?
+  gemini_api_key   String?
+  status           Boolean?             @default(true)
+  settings         Json?                @default("{}")
+  created_at       DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at       DateTime?            @db.Timestamptz(6)
+  bancadas         Bancada[]
+  cargos           Cargo[]
+  comissoes        Comissao[]
+  modelos_projetos ModeloProjeto[]
+  ordem_do_dia     OrdemDoDia[]
+  pareceres        Parecer[]
+  presencas        Presenca[]
+  proposicao_tipos ProposicaoTipo[]
+  proposicoes      Proposicao[]
+  sessoes          Sessao[]
+  setores          Setor[]
+  solicitacoes     SolicitacaoPalavra[]
+  tramitacoes      Tramitacao[]
+  users            User[]
+  vereadores       Vereador[]
+  visitantes       Visitante[]
+  votacoes             Votacao[]
+  votos                Voto[]
+
+  @@map("tenants")
+}
+
+model Cargo {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  nome       String    @db.VarChar(100)
+  permissoes Json?     @default("{}")
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+  tenant     Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("cargos")
+}
+
+model Setor {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String       @db.Uuid
+  nome                String       @db.VarChar(100)
+  sigla               String       @db.VarChar(20)
+  permissoes          Json?        @default("{}")
+  created_at          DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime     @default(now()) @db.Timestamptz(6)
+  deleted_at          DateTime?    @db.Timestamptz(6)
+  tenant              Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tramitacoes_destino Tramitacao[] @relation("DestinoSetor")
+  tramitacoes_origem  Tramitacao[] @relation("OrigemSetor")
+  users               User[]
+
+  @@map("setores")
+}
+
+model User {
+  id          String       @id @db.Uuid
+  tenant_id   String       @db.Uuid
+  nome        String       @db.VarChar(255)
+  email       String       @unique @db.VarChar(255)
+  senha_hash  String?      @db.VarChar(255)
+  role        UserRole
+  setor_id    String?      @db.Uuid
+  status      Boolean?     @default(true)
+  username    String?      @db.VarChar(50)
+  vereador_id String?      @db.Uuid
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime     @default(now()) @db.Timestamptz(6)
+  deleted_at  DateTime?    @db.Timestamptz(6)
+  pareceres   Parecer[]
+  tramitacoes Tramitacao[]
+  setor       Setor?       @relation(fields: [setor_id], references: [id])
+  tenant      Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  vereador    Vereador?
+
+  @@map("users")
+}
+
+model Bancada {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String     @db.Uuid
+  nome       String     @db.VarChar(100)
+  sigla      String     @db.VarChar(20)
+  logo_url   String?    @db.VarChar(255)
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at DateTime   @default(now()) @db.Timestamptz(6)
+  deleted_at DateTime?  @db.Timestamptz(6)
+  tenant     Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  vereadores Vereador[]
+
+  @@map("bancadas")
+}
+
+model Vereador {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String               @db.Uuid
+  user_id              String               @unique @db.Uuid
+  bancada_id           String               @db.Uuid
+  nome_parlamentar     String               @db.VarChar(100)
+  foto_url             String?              @db.VarChar(255)
+  cargo_mesa           String?              @db.VarChar(50)
+  status_mandato       Boolean?             @default(true)
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at           DateTime?            @db.Timestamptz(6)
+  comissoes_membro     ComissaoMembro[]
+  comissoes_presididas Comissao[]           @relation("Presidente")
+  comissoes_relatadas  Comissao[]           @relation("Relator")
+  presencas            Presenca[]
+  proposicoes          Proposicao[]
+  solicitacoes         SolicitacaoPalavra[]
+  bancada              Bancada              @relation(fields: [bancada_id], references: [id])
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user                 User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  visitantes_destino   Visitante[]
+  votos                Voto[]
+
+  @@map("vereadores")
+}
+
+model Comissao {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String           @db.Uuid
+  nome          String           @db.VarChar(150)
+  sigla         String           @db.VarChar(20)
+  presidente_id String           @db.Uuid
+  relator_id    String           @db.Uuid
+  created_at    DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime         @default(now()) @db.Timestamptz(6)
+  deleted_at    DateTime?        @db.Timestamptz(6)
+  membros       ComissaoMembro[]
+  presidente    Vereador         @relation("Presidente", fields: [presidente_id], references: [id])
+  relator       Vereador         @relation("Relator", fields: [relator_id], references: [id])
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  pareceres     Parecer[]
+
+  @@map("comissoes")
+}
+
+model ComissaoMembro {
+  comissao_id String   @db.Uuid
+  vereador_id String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  comissao    Comissao @relation(fields: [comissao_id], references: [id], onDelete: Cascade)
+  vereador    Vereador @relation(fields: [vereador_id], references: [id], onDelete: Cascade)
+
+  @@id([comissao_id, vereador_id])
+  @@map("comissao_membros")
+}
+
+model Visitante {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String               @db.Uuid
+  nome_completo       String               @db.VarChar(255)
+  documento_cpf_rg    String?              @db.VarChar(50)
+  representacao       String?
+  motivo_visita       String
+  foto_url            String?              @db.VarChar(500)
+  disponivel_tribuna  Boolean              @default(false)
+  gabinete_destino_id String?              @db.Uuid
+  data_entrada        DateTime             @default(now()) @db.Timestamptz(6)
+  data_saida          DateTime?            @db.Timestamptz(6)
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at          DateTime?            @db.Timestamptz(6)
+  vereador            Vereador?            @relation(fields: [gabinete_destino_id], references: [id])
+  tenant              Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  solicitacoes        SolicitacaoPalavra[]
+
+  @@map("visitantes")
+}
+
+model ModeloProjeto {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String             @db.Uuid
+  titulo        String             @db.VarChar(255)
+  tipo          ProposicaoTipoEnum
+  conteudo_html String
+  created_at    DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime           @default(now()) @db.Timestamptz(6)
+  deleted_at    DateTime?          @db.Timestamptz(6)
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("modelos_projetos")
+}
+
+model Proposicao {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String             @db.Uuid
+  tipo           ProposicaoTipoEnum
+  numero         Int?
+  ano            Int
+  ementa         String
+  texto_completo String
+  status         ProposicaoStatus   @default(RASCUNHO)
+  autoria_mesa   Boolean            @default(false)
+  autoria_poder_executivo Boolean   @default(false)
+  pdf_url        String?
+  created_at     DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime           @default(now()) @db.Timestamptz(6)
+  deleted_at     DateTime?          @db.Timestamptz(6)
+  ordem_do_dia   OrdemDoDia[]
+  pareceres      Parecer[]
+  autor_id       String?            @db.Uuid
+  autor          Vereador?          @relation(fields: [autor_id], references: [id])
+  tenant         Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tramitacoes    Tramitacao[]
+  votacoes       Votacao[]
+
+  @@map("proposicoes")
+}
+
+model Tramitacao {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String         @db.Uuid
+  proposicao_id    String         @db.Uuid
+  origem_setor_id  String?        @db.Uuid
+  destino_setor_id String         @db.Uuid
+  acao             TramitacaoAcao
+  despacho_texto   String?
+  usuario_id       String         @db.Uuid
+  data_tramite     DateTime       @default(now()) @db.Timestamptz(6)
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  deleted_at       DateTime?      @db.Timestamptz(6)
+  destino_setor    Setor          @relation("DestinoSetor", fields: [destino_setor_id], references: [id])
+  origem_setor     Setor?         @relation("OrigemSetor", fields: [origem_setor_id], references: [id])
+  proposicao       Proposicao     @relation(fields: [proposicao_id], references: [id], onDelete: Cascade)
+  tenant           Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  usuario          User           @relation(fields: [usuario_id], references: [id])
+
+  @@map("tramitacoes")
+}
+
+model Parecer {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String     @db.Uuid
+  proposicao_id    String     @db.Uuid
+  tipo_parecer     String     @db.VarChar(50)
+  comissao_id      String?    @db.Uuid
+  texto_parecer    String
+  conclusao        String     @db.VarChar(20)
+  autor_parecer_id String     @db.Uuid
+  arquivo_pdf_url  String?    @db.VarChar(255)
+  created_at       DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime   @default(now()) @db.Timestamptz(6)
+  deleted_at       DateTime?  @db.Timestamptz(6)
+  autor            User       @relation(fields: [autor_parecer_id], references: [id])
+  comissao         Comissao?  @relation(fields: [comissao_id], references: [id], onDelete: Cascade)
+  proposicao       Proposicao @relation(fields: [proposicao_id], references: [id], onDelete: Cascade)
+  tenant           Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("pareceres")
+}
+
+model Sessao {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String               @db.Uuid
+  numero_sessao     Int
+  /// Designação legislativa (ex.: "1ª Sessão Ordinária — 2026", "Seção II").
+  secao_legislativa String?              @db.VarChar(300)
+  tipo              SessaoTipo
+  data_sessao       DateTime             @db.Timestamptz(6)
+  status            SessaoStatus         @default(AGENDADA)
+  video_url_youtube String?              @db.VarChar(255)
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at        DateTime?            @db.Timestamptz(6)
+  ordem_do_dia      OrdemDoDia[]
+  presencas         Presenca[]
+  tenant            Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  solicitacoes       SolicitacaoPalavra[]
+  votacoes           Votacao[]
+
+  @@map("sessoes")
+}
+
+model OrdemDoDia {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String     @db.Uuid
+  sessao_id        String     @db.Uuid
+  proposicao_id    String     @db.Uuid
+  ordem_sequencial Int
+  status_discussao String     @default("AGUARDANDO") @db.VarChar(50)
+  created_at       DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime   @default(now()) @db.Timestamptz(6)
+  deleted_at       DateTime?  @db.Timestamptz(6)
+  proposicao       Proposicao @relation(fields: [proposicao_id], references: [id], onDelete: Cascade)
+  sessao           Sessao     @relation(fields: [sessao_id], references: [id], onDelete: Cascade)
+  tenant           Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("ordem_do_dia")
+}
+
+model Presenca {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String       @db.Uuid
+  sessao_id         String       @db.Uuid
+  vereador_id       String       @db.Uuid
+  status            PresencaTipo
+  timestamp_checkin DateTime     @default(now()) @db.Timestamptz(6)
+  created_at        DateTime     @default(now()) @db.Timestamptz(6)
+  sessao            Sessao       @relation(fields: [sessao_id], references: [id], onDelete: Cascade)
+  tenant            Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  vereador          Vereador     @relation(fields: [vereador_id], references: [id], onDelete: Cascade)
+
+  @@unique([sessao_id, vereador_id])
+  @@map("presencas")
+}
+
+model Votacao {
+  id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String     @db.Uuid
+  sessao_id           String     @db.Uuid
+  proposicao_id       String     @db.Uuid
+  status              String     @db.VarChar(50)
+  resultado_calculado String?    @db.VarChar(50)
+  created_at          DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime   @default(now()) @db.Timestamptz(6)
+  deleted_at          DateTime?  @db.Timestamptz(6)
+  proposicao          Proposicao @relation(fields: [proposicao_id], references: [id], onDelete: Cascade)
+  sessao              Sessao     @relation(fields: [sessao_id], references: [id], onDelete: Cascade)
+  tenant              Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  votos               Voto[]
+
+  @@map("votacoes")
+}
+
+model Voto {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  votacao_id  String   @db.Uuid
+  vereador_id String   @db.Uuid
+  voto        VotoTipo
+  timestamp   DateTime @default(now()) @db.Timestamptz(6)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  tenant      Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  vereador    Vereador @relation(fields: [vereador_id], references: [id])
+  votacao     Votacao  @relation(fields: [votacao_id], references: [id], onDelete: Cascade)
+
+  @@unique([votacao_id, vereador_id])
+  @@map("votos")
+}
+
+model SolicitacaoPalavra {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String     @db.Uuid
+  sessao_id    String     @db.Uuid
+  vereador_id  String?    @db.Uuid
+  visitante_id String?    @db.Uuid
+  tipo         String     @db.VarChar(50)
+  status       String     @default("PENDENTE") @db.VarChar(20)
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  sessao       Sessao     @relation(fields: [sessao_id], references: [id], onDelete: Cascade)
+  tenant       Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  vereador     Vereador?  @relation(fields: [vereador_id], references: [id], onDelete: Cascade)
+  visitante    Visitante? @relation(fields: [visitante_id], references: [id], onDelete: Cascade)
+
+  @@map("solicitacoes_palavra")
+}
+
+enum UserRole {
+  ADMIN_MASTER
+  ADMIN_CAMARA
+  SECRETARIA
+  JURIDICO
+  COMISSAO
+  VEREADOR
+  OPERADOR
+  DEV
+  ADMIN
+  PRESIDENTE
+}
+
+enum ProposicaoTipoEnum {
+  PROJETO_DE_LEI
+  PROJETO_DE_RESOLUCAO
+  DECRETO_LEGISLATIVO
+  MOCAO
+  REQUERIMENTO
+  INDICACAO
+  EMENDA
+  PORTARIA
+  ATA
+  PARECER_DE_COMISSAO
+}
+
+enum ProposicaoStatus {
+  RASCUNHO
+  PROTOCOLADO
+  EM_TRAMITACAO
+  AGUARDANDO_PARECER
+  PRONTO_PARA_PAUTA
+  EM_PAUTA
+  APROVADO
+  REJEITADO
+  ARQUIVADO
+  RETIRADO_PELO_AUTOR
+}
+
+enum TramitacaoAcao {
+  CRIADO
+  RECEBIDO
+  ENCAMINHADO
+  DEVOLVIDO
+  PARECER_FAVORAVEL
+  PARECER_CONTRARIO
+  ARQUIVADO
+}
+
+enum SessaoTipo {
+  ORDINARIA
+  EXTRAORDINARIA
+  SOLENE
+  AUDIENCIA_PUBLICA
+}
+
+enum SessaoStatus {
+  AGENDADA
+  EM_CHAMADA
+  ABERTA
+  EM_VOTACAO
+  SUSPENSA
+  ENCERRADA
+}
+
+enum VotoTipo {
+  SIM
+  NAO
+  ABSTENCAO
+}
+
+enum PresencaTipo {
+  PRESENTE
+  AUSENTE
+  FALTA_JUSTIFICADA
+}
