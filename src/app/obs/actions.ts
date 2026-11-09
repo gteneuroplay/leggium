@@ -17,7 +17,7 @@ async function loadPainelObsBundle(sessaoId: string, tenantId: string) {
     }),
   ]);
 
-  const vereadoresFlat = vereadores.map((v) => ({
+  const vereadoresFlat = vereadores.map((v: any) => ({
     ...v,
     partido: v.bancada?.sigla ?? "",
   }));
@@ -45,7 +45,7 @@ export async function getPainelObsData(sessaoId: string) {
         bancada: { select: { sigla: true, nome: true } },
       },
     });
-    const vereadoresFlat = vereadores.map((v) => ({
+    const vereadoresFlat = vereadores.map((v: any) => ({
       ...v,
       partido: v.bancada?.sigla ?? "",
     }));

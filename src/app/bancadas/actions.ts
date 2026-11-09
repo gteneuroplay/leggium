@@ -23,7 +23,7 @@ export async function getBancadas() {
   });
 
   // Ordena por maior número de vereadores
-  const sortedData = bancadas.sort((a, b) => (b.vereadores?.length || 0) - (a.vereadores?.length || 0));
+  const sortedData = bancadas.sort((a: any, b: any) => (b.vereadores?.length || 0) - (a.vereadores?.length || 0));
 
   return sortedData;
 }

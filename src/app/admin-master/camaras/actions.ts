@@ -159,7 +159,7 @@ export async function criarCamaraAdminMaster(formData: {
   const apex = baseDomain.replace(/^www\./i, "");
   const subdomainHost = `${slug}.${apex}`;
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     await tx.tenant.create({
       data: {
         id: tenantId,
